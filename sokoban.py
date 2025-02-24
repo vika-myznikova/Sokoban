@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pygame
 
 from sokoban_settings import *
@@ -12,6 +14,7 @@ class Sokoban:
         self.init_sounds()
         self.levels = self.load_levels()
         self.select_level = 1
+        self.victory = False
         self.dir = "down"
         self.move = None
         self.running = True
@@ -49,6 +52,10 @@ class Sokoban:
 
     def init_sounds(self):
         pygame.mixer.init()
+        self.music = pygame.mixer.Sound("data/sounds/music.mp3")
+        self.music.set_volume(0.1)
+        self.music.play()
+
         self.step = pygame.mixer.Sound("data/sounds/step.mp3")
         self.step.set_volume(0.2)
 
@@ -75,24 +82,40 @@ class Sokoban:
             return tuple(levels)
 
     def launch(self):
+        self.level_copy = self.copy_level()
         while self.running:
             self.game_event()
             self.update_game()
             self.update_screen()
 
+    def copy_level(self):
+        level_copy = deepcopy(self.levels[self.select_level - 1])
+        return level_copy
+
     def game_event(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    self.move = "up"
-                elif event.key == pygame.K_DOWN:
-                    self.move = "down"
-                elif event.key == pygame.K_LEFT:
-                    self.move = "left"
-                elif event.key == pygame.K_RIGHT:
-                    self.move = "right"
+            if self.victory:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                    if self.select_level < len(self.levels):
+                        self.select_level += 1
+
+                    self.level_copy = self.copy_level()
+                    self.victory = False
+            else:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        self.move = "up"
+                    elif event.key == pygame.K_DOWN:
+                        self.move = "down"
+                    elif event.key == pygame.K_LEFT:
+                        self.move = "left"
+                    elif event.key == pygame.K_RIGHT:
+                        self.move = "right"
+                    elif event.key == pygame.K_ESCAPE:
+                        self.dir = "down"
+                        self.level_copy = self.copy_level()
 
     def update_game(self):
         if self.move:
@@ -106,80 +129,102 @@ class Sokoban:
             elif self.move == "right":
                 self.update_move_right()
             self.move = None
+            self.check_results()
 
     def update_move_up(self):
-        x, y = self.levels[self.select_level - 1]["player_cord"][0]
-        if (x, y - 1) in self.levels[self.select_level - 1]["box"]:
-            if ((x, y - 2) not in self.levels[self.select_level - 1]["box"]
-                    and self.levels[self.select_level - 1]["map"][y - 2][x] != "#"):
-                self.levels[self.select_level - 1]["box"].remove((x, y - 1))
-                self.levels[self.select_level - 1]["box"].append((x, y - 2))
+        x, y = self.level_copy["player_cord"][0]
+        if (x, y - 1) in self.level_copy["box"]:
+            if ((x, y - 2) not in self.level_copy["box"]
+                    and self.level_copy["map"][y - 2][x] != "#"):
+                self.level_copy["box"].remove((x, y - 1))
+                self.level_copy["box"].append((x, y - 2))
 
-        if (self.levels[self.select_level - 1]["map"][y - 1][x] in ["-", "X"]
-                and (x, y - 1) not in self.levels[self.select_level - 1]["box"]):
-            self.levels[self.select_level - 1]["player_cord"].pop()
-            self.levels[self.select_level - 1]["player_cord"].append((x, y - 1))
+        if (self.level_copy["map"][y - 1][x] in ["-", "X"]
+                and (x, y - 1) not in self.level_copy["box"]):
+            self.level_copy["player_cord"].pop()
+            self.level_copy["player_cord"].append((x, y - 1))
             self.dir = "up"
 
     def update_move_down(self):
-        x, y = self.levels[self.select_level - 1]["player_cord"][0]
-        if (x, y + 1) in self.levels[self.select_level - 1]["box"]:
-            if ((x, y + 2) not in self.levels[self.select_level - 1]["box"]
-                    and self.levels[self.select_level - 1]["map"][y + 2][x] != "#"):
-                self.levels[self.select_level - 1]["box"].remove((x, y + 1))
-                self.levels[self.select_level - 1]["box"].append((x, y + 2))
-        if (self.levels[self.select_level - 1]["map"][y + 1][x] in ["-", "X"]
-                and (x, y + 1) not in self.levels[self.select_level - 1]["box"]):
-            self.levels[self.select_level - 1]["player_cord"].pop()
-            self.levels[self.select_level - 1]["player_cord"].append((x, y + 1))
+        x, y = self.level_copy["player_cord"][0]
+        if (x, y + 1) in self.level_copy["box"]:
+            if ((x, y + 2) not in self.level_copy["box"]
+                    and self.level_copy["map"][y + 2][x] != "#"):
+                self.level_copy["box"].remove((x, y + 1))
+                self.level_copy["box"].append((x, y + 2))
+        if (self.level_copy["map"][y + 1][x] in ["-", "X"]
+                and (x, y + 1) not in self.level_copy["box"]):
+            self.level_copy["player_cord"].pop()
+            self.level_copy["player_cord"].append((x, y + 1))
             self.dir = "down"
 
     def update_move_left(self):
-        x, y = self.levels[self.select_level - 1]["player_cord"][0]
-        if (x - 1, y) in self.levels[self.select_level - 1]["box"]:
-            if ((x - 2, y) not in self.levels[self.select_level - 1]["box"]
-                    and self.levels[self.select_level - 1]["map"][y][x - 2] != "#"):
-                self.levels[self.select_level - 1]["box"].remove((x - 1, y))
-                self.levels[self.select_level - 1]["box"].append((x - 2, y))
-        if (self.levels[self.select_level - 1]["map"][y][x - 1] in ["-", "X"]
-                and (x - 1, y) not in self.levels[self.select_level - 1]["box"]):
-            self.levels[self.select_level - 1]["player_cord"].pop()
-            self.levels[self.select_level - 1]["player_cord"].append((x - 1, y))
+        x, y = self.level_copy["player_cord"][0]
+        if (x - 1, y) in self.level_copy["box"]:
+            if ((x - 2, y) not in self.level_copy["box"]
+                    and self.level_copy["map"][y][x - 2] != "#"):
+                self.level_copy["box"].remove((x - 1, y))
+                self.level_copy["box"].append((x - 2, y))
+        if (self.level_copy["map"][y][x - 1] in ["-", "X"]
+                and (x - 1, y) not in self.level_copy["box"]):
+            self.level_copy["player_cord"].pop()
+            self.level_copy["player_cord"].append((x - 1, y))
             self.dir = "left"
 
     def update_move_right(self):
-        x, y = self.levels[self.select_level - 1]["player_cord"][0]
-        if (x + 1, y) in self.levels[self.select_level - 1]["box"]:
+        x, y = self.level_copy["player_cord"][0]
+        if (x + 1, y) in self.level_copy["box"]:
 
-            if ((x + 2, y) not in self.levels[self.select_level - 1]["box"]
-                    and self.levels[self.select_level - 1]["map"][y][x + 2] != "#"):
-                self.levels[self.select_level - 1]["box"].remove((x + 1, y))
-                self.levels[self.select_level - 1]["box"].append((x + 2, y))
+            if ((x + 2, y) not in self.level_copy["box"]
+                    and self.level_copy["map"][y][x + 2] != "#"):
+                self.level_copy["box"].remove((x + 1, y))
+                self.level_copy["box"].append((x + 2, y))
 
-        if (self.levels[self.select_level - 1]["map"][y][x + 1] in ["-", "X"]
-                and (x + 1, y) not in self.levels[self.select_level - 1]["box"]):
-            self.levels[self.select_level - 1]["player_cord"].pop()
-            self.levels[self.select_level - 1]["player_cord"].append((x + 1, y))
+        if (self.level_copy["map"][y][x + 1] in ["-", "X"]
+                and (x + 1, y) not in self.level_copy["box"]):
+            self.level_copy["player_cord"].pop()
+            self.level_copy["player_cord"].append((x + 1, y))
             self.dir = "right"
+
+    def check_results(self):
+        self.victory = True
+        for y in range(len(self.level_copy["map"])):
+            for x in range(len(self.level_copy["map"][y])):
+                if self.level_copy["map"][y][x] == "X" and (x, y) not in self.level_copy["box"]:
+                    self.victory = False
 
     def update_screen(self):
         self.screen.fill(BACKGROUND)
+        background_text = ["Esc - перезапуск уровня", ]
+
+        for line in background_text:
+            font = pygame.font.Font(None, 50)
+            text_coord = 50
+            string_rendered = font.render(line, 1, pygame.Color('green'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 0
+            intro_rect.top = text_coord
+            intro_rect.x = 50
+            text_coord += intro_rect.height
+            self.screen.blit(string_rendered, intro_rect)
+
         self.update_board()
+        if self.victory:
+            self.draw_victory()
         pygame.display.flip()
 
     def update_board(self):
         self.draw_board()
-        self.print_level()
 
     def draw_board(self):
         start_x = (WIDTH - self.get_row() * IMAGE_SIZE) // 2
-        start_y = (HEIGHT - len(self.levels[self.select_level - 1]["map"]) * IMAGE_SIZE) // 2
+        start_y = (HEIGHT - len(self.level_copy["map"]) * IMAGE_SIZE) // 2
         i, j = 0, 0
-        for y in range(start_y, start_y + len(self.levels[self.select_level - 1]["map"]) * IMAGE_SIZE, IMAGE_SIZE):
+        for y in range(start_y, start_y + len(self.level_copy["map"]) * IMAGE_SIZE, IMAGE_SIZE):
 
-            for x in range(start_x, start_x + len(self.levels[self.select_level - 1]["map"][j]) * IMAGE_SIZE,
+            for x in range(start_x, start_x + len(self.level_copy["map"][j]) * IMAGE_SIZE,
                            IMAGE_SIZE):
-                s = self.levels[self.select_level - 1]["map"][j][i]
+                s = self.level_copy["map"][j][i]
                 if s == "#":
                     self.screen.blit(self.floor_img, (x, y))
                     self.screen.blit(self.wall_img, (x, y))
@@ -188,7 +233,7 @@ class Sokoban:
                 elif s == "X":
                     self.screen.blit(self.floor_img, (x, y))
                     self.screen.blit(self.point_img, (x, y))
-                if (i, j) in self.levels[self.select_level - 1]["player_cord"]:
+                if (i, j) in self.level_copy["player_cord"]:
                     if self.dir == "down":
                         self.screen.blit(self.down_img, (x, y))
                     elif self.dir == "up":
@@ -197,7 +242,7 @@ class Sokoban:
                         self.screen.blit(self.left_img, (x, y))
                     elif self.dir == "right":
                         self.screen.blit(self.right_img, (x, y))
-                if (i, j) in self.levels[self.select_level - 1]["box"]:
+                if (i, j) in self.level_copy["box"]:
                     self.screen.blit(self.floor_img, (x, y))
                     self.screen.blit(self.box_img, (x, y))
                 i += 1
@@ -207,8 +252,34 @@ class Sokoban:
     def get_row(self):
         return max([len(line) for line in self.levels[self.select_level - 1]["map"]])
 
-    def print_level(self):
-        ...
+    def draw_victory(self):
+        text_1 = ["Вы выиграли!"]
+        text_2 = ["Для продолжения нажмите enter"]
+        fon = pygame.transform.scale(pygame.image.load("data/images/fon.jpeg"), (WIDTH, HEIGHT))
+        self.screen.blit(fon, (0, 0))
+
+        for line in text_1:
+            font = pygame.font.Font(None, 250)
+            text_coord = 50
+            string_rendered = font.render(line, 1, pygame.Color('green'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 0
+            intro_rect.top = text_coord
+            intro_rect.x = 50
+            text_coord += intro_rect.height
+            self.screen.blit(string_rendered, intro_rect)
+
+        for line in text_2:
+            font = pygame.font.Font(None, 50)
+            text_coord = 50
+            string_rendered = font.render(line, 1, pygame.Color('green'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 150
+            intro_rect.top = text_coord
+            intro_rect.x = 60
+            text_coord += intro_rect.height
+            self.screen.blit(string_rendered, intro_rect)
 
     def __del__(self):
         pygame.quit()
+
