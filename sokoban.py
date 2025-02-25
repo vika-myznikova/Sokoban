@@ -3,21 +3,24 @@ from copy import deepcopy
 import pygame
 
 from sokoban_settings import *
+import pygame_menu
 
 
 class Sokoban:
 
-    def __init__(self):
+    def __init__(self, numberLevel):
         pygame.init()
         self.init_screen()
         self.init_images()
         self.init_sounds()
         self.levels = self.load_levels()
-        self.select_level = 1
+        self.select_level = numberLevel
         self.victory = False
         self.dir = "down"
         self.move = None
         self.running = True
+        self.menu = pygame_menu.Menu('Welcome', 400, 300,
+                                     theme=pygame_menu.themes.THEME_BLUE)
 
     def init_screen(self):
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -65,7 +68,8 @@ class Sokoban:
             for line in file:
                 line = line.rstrip()
                 if line:
-                    if line.startswith("level"):
+                    if line.startswith('level'):
+                        self.level = line.split()[-1]
                         level = {"map": [], "player_cord": [], "box": []}
                     elif line.startswith("P: "):
                         x, y = map(int, line[3:].split(","))
