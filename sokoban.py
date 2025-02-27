@@ -284,6 +284,7 @@ class Sokoban:
             text_coord += intro_rect.height
             self.screen.blit(string_rendered, intro_rect)
 
+
     def __del__(self):
         pygame.quit()
 
